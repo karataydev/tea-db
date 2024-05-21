@@ -3,6 +3,7 @@ package flex
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"log"
 )
 
 type FlexElement interface {
@@ -10,6 +11,11 @@ type FlexElement interface {
 	setSize(int, int)
 	resizeChildren()
 	Priority() int
+}
+
+type flexString struct {
+	flex
+	str string
 }
 
 type flex struct {
@@ -59,13 +65,19 @@ func newFlex(width, height, priority int, children *[]FlexElement) *flex {
 
 func (c *column) resizeChildren() {
 	for _, flex := range *c.children {
-		flex.setSize(c.width, c.height * (flex.Priority() / c.pSum))
+		cof := float32(flex.Priority()) / float32(c.pSum)
+		newHeight := int(float32(c.height) * cof)
+		flex.setSize(c.width, newHeight)
+		flex.resizeChildren()
 	}
 }
 
 func (r *row) resizeChildren() {
 	for _, flex := range *r.children {
-		flex.setSize(r.width * (flex.Priority() / r.pSum), r.height)
+		cof := float32(flex.Priority()) / float32(r.pSum)
+		newWidth := int(float32(r.width) * cof)
+		flex.setSize(newWidth, r.height)
+		flex.resizeChildren()
 	}
 }
 
@@ -88,6 +100,41 @@ func NewRow(width, height, priority int, children *[]FlexElement) *row {
 	return r
 }
 
+func NewFlexStr(width, height int, str string) *flexString {
+	f := newFlex(width, height, 1, &[]FlexElement{})
+	r := &flexString {
+		flex: *f,
+		str: str,
+	}
+	return r
+}
+
+func (f *flexString) setSize(width int, height int) {
+	f.width = width
+	f.height = height
+}
+
+
+
+func (c flexString) Init() tea.Cmd {
+	return nil
+}
+
+
+func (c flexString) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd	
+	return c, cmd
+}
+
+
+func (c flexString) View() string {
+	return lipgloss.NewStyle().
+		Height(c.height).
+		Width(c.width).
+		Render(c.str)
+}
+
+
 func (c column) Init() tea.Cmd {
 	return nil
 }
@@ -97,7 +144,8 @@ func (c column) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		c.setSize(msg.Width, msg.Height)
+		log.Printf("%d - %d", msg.Width, msg.Height)
+		c.setSize(msg.Width-2, msg.Height-3)
 		c.resizeChildren()
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -115,10 +163,17 @@ func (c column) View() string {
 		childStrs = append(childStrs, flex.View())
 	}
 
-	return lipgloss.JoinVertical(
-		lipgloss.Left,
-		childStrs...,
-	)
+	return lipgloss.NewStyle().
+		Height(c.height-10).
+		Width(c.width).
+		//Padding(1,1).
+		Border(lipgloss.RoundedBorder()).
+		Render(
+			lipgloss.JoinVertical(
+				lipgloss.Top,
+				childStrs...,
+			),
+		)
 }
 
 func (c row) Init() tea.Cmd {
@@ -129,9 +184,6 @@ func (c row) Init() tea.Cmd {
 func (c row) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		c.setSize(msg.Width, msg.Height)
-		c.resizeChildren()
 	case tea.KeyMsg:
 		switch msg.String() {
 			case "ctrl+c", "q":
@@ -148,8 +200,15 @@ func (c row) View() string {
 		childStrs = append(childStrs, flex.View())
 	}
 
-	return lipgloss.JoinHorizontal(
-		lipgloss.Top,
-		childStrs...,
-	)
+	return lipgloss.NewStyle().
+		Height(c.height).
+		Width(c.width-2).
+		//Padding(1,1).
+		Border(lipgloss.RoundedBorder()).
+		Render(
+			lipgloss.JoinHorizontal(
+				lipgloss.Top,
+				childStrs...,
+			),
+		)
 }

@@ -27,13 +27,14 @@ type flex struct {
 	children *[]FlexElement
 }
 
-type column struct {
+type column struct {		
 	flex
 }
 
 type row struct {
 	flex
 }
+
 
 func (f *flex) setSize(width int, height int) {
 	f.width = width
